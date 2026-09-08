@@ -2,9 +2,875 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>말레이시아어 단어장</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>말레이어 단어장</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="말레이어">
+<meta name="theme-color" content="#1E6E6A">
+<script>
+  // 선택: Firebase 동기화 주소를 여기에 넣으면 모든 기기에서 자동으로 연결됩니다.
+  // (파일을 공개 저장소에 올린다면 비워 두고, 설정 화면에서 연결하세요.)
+  window.SYNC_URL_DEFAULT = "";
+</script>
+<style>
+  :root{
+    --paper:#EEF1F1;
+    --white:#FFFFFF;
+    --ink:#1E2433;
+    --ink-2:#5B6475;
+    --ink-3:#8A93A3;
+    --line:#D9DEDE;
+    --rule:#CFE0DE;
+    --teal:#1E6E6A;
+    --teal-deep:#155450;
+    --teal-pale:#E1F0EE;
+    --seal:#C2382C;
+    --ui:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic","Segoe UI",Roboto,sans-serif;
+    --word:"Iowan Old Style","Palatino Linotype","Book Antiqua",Palatino,Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--ui);font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
+  button,input,textarea{font-family:inherit;font-size:inherit;color:inherit}
+  button{cursor:pointer}
+  #app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+
+  .top{display:flex;align-items:baseline;justify-content:space-between;padding:14px 18px 6px}
+  .brand{font-weight:700;font-size:17px;letter-spacing:-0.01em}
+  .status{font-size:13px;color:var(--ink-2)}
+
+  main{flex:1;padding:8px 16px calc(84px + env(safe-area-inset-bottom))}
+  section.card{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:18px 16px}
+  .center{text-align:center}
+  .muted{color:var(--ink-2)}
+  .small{font-size:13px}
+  .gap{height:12px}
+  .gap-l{height:22px}
+  h2{font-size:15px;font-weight:600;margin:0 0 10px;color:var(--ink-2)}
+
+  /* ruled notebook hero */
+  .sheet{position:relative;margin:6px auto 0;padding:26px 12px 14px;background:
+    repeating-linear-gradient(to bottom, transparent 0, transparent 35px, var(--rule) 35px, var(--rule) 36px);
+    border-radius:4px}
+  .word{font-family:var(--word);font-size:44px;line-height:1.15;letter-spacing:0.005em;color:var(--ink);word-break:break-word}
+  .word.sm{font-size:30px}
+  .word-inline{font-family:var(--word);font-size:1.15em}
+  .meaning{font-size:20px;font-weight:600;margin-top:12px}
+  .example{color:var(--ink-2);margin-top:8px;font-size:15px}
+  .example .word-inline{color:var(--ink);font-size:1.05em}
+  .prompt-mean{font-size:26px;font-weight:600;margin:18px 0 6px}
+  .hint{color:var(--ink-3);font-size:14px}
+
+  .btn{display:block;width:100%;height:50px;border-radius:9px;border:1px solid var(--line);background:var(--white);font-weight:600;font-size:16px;margin-top:10px}
+  .btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+  .btn.primary:active{background:var(--teal-deep)}
+  .btn.quiet{border-color:transparent;background:transparent;color:var(--teal);font-weight:500;height:44px}
+  .btn.danger{color:var(--seal);border-color:var(--seal)}
+  .btn:disabled{opacity:.5}
+  .row{display:flex;gap:8px}
+  .row .btn{margin-top:10px}
+  .btn.fail{color:var(--seal)}
+  .btn.pass{color:var(--teal);border-color:var(--teal)}
+  .iconbtn{height:36px;padding:0 12px;border-radius:18px;border:1px solid var(--line);background:var(--white);font-size:14px;color:var(--ink-2)}
+
+  label{display:block;font-size:13px;color:var(--ink-2);margin:12px 0 4px}
+  input[type=text],textarea{width:100%;height:48px;border:1px solid var(--line);border-radius:8px;padding:0 12px;background:var(--white);outline:none}
+  textarea{height:auto;padding:10px 12px;min-height:110px;line-height:1.5;resize:vertical}
+  input:focus,textarea:focus,button:focus-visible{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-pale)}
+  .input-word{font-family:var(--word);font-size:22px;height:56px}
+  .field-note{font-size:13px;color:var(--ink-3);margin-top:4px}
+  .answer-row{display:flex;gap:8px;margin-top:14px}
+  .answer-row input{flex:1;font-size:20px;height:54px;font-family:var(--word)}
+  .answer-row .btn{width:auto;padding:0 20px;margin:0;height:54px}
+
+  /* rubber stamp */
+  .stamp{display:inline-flex;align-items:center;justify-content:center;min-width:96px;height:44px;padding:0 14px;border:3px solid var(--seal);color:var(--seal);border-radius:6px;font-family:var(--word);font-style:italic;font-size:22px;letter-spacing:0.04em;transform:rotate(-6deg);margin:6px 0 6px}
+  .stamp.wrong{border-color:var(--ink-3);color:var(--ink-3);transform:rotate(4deg)}
+  .verdict{font-weight:600;margin-top:2px}
+  .typed{color:var(--ink-3);font-size:17px;text-decoration:line-through;font-family:var(--word)}
+  .heard{font-size:14px;color:var(--ink-2);margin:4px 0 2px}
+  .heard .word-inline{color:var(--ink)}
+  @media (prefers-reduced-motion:no-preference){
+    .stamp.pop{animation:pop .28s ease-out}
+    @keyframes pop{from{transform:rotate(-6deg) scale(1.5);opacity:0}to{transform:rotate(-6deg) scale(1);opacity:1}}
+    .stamp.wrong.pop{animation:popw .28s ease-out}
+    @keyframes popw{from{transform:rotate(4deg) scale(1.5);opacity:0}to{transform:rotate(4deg) scale(1);opacity:1}}
+  }
+
+  .progress{height:4px;background:var(--line);border-radius:2px;margin:0 2px 14px;overflow:hidden}
+  .progress i{display:block;height:100%;background:var(--teal);border-radius:2px}
+
+  /* word list */
+  .search{margin-bottom:10px}
+  .wlist{background:var(--white);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .witem{border-top:1px solid var(--line)}
+  .witem:first-child{border-top:0}
+  .whead{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;text-align:left;background:none;border:0}
+  .wword{font-family:var(--word);font-size:20px;flex:1;min-width:0;line-height:1.2}
+  .wword div{font-family:var(--ui);font-size:14px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .wdue{font-size:12px;color:var(--ink-3);white-space:nowrap}
+  .wbody{padding:0 14px 14px;font-size:14px;color:var(--ink-2)}
+  .wbody .row .btn{height:42px;font-size:14px;font-weight:500}
+  .stagebar{display:inline-flex;gap:3px;vertical-align:middle;margin-left:6px}
+  .stagebar i{width:6px;height:6px;border-radius:50%;background:var(--line);display:block}
+  .stagebar i.on{background:var(--teal)}
+
+  .radio{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+  .radio:first-of-type{border-top:0}
+  .radio input{width:20px;height:20px;margin:0}
+  .radio div{flex:1}
+  .radio .small{display:block}
+
+  .empty{padding:30px 10px;text-align:center;color:var(--ink-2)}
+
+  .tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;background:var(--white);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+  .tabs div{display:flex;width:100%;max-width:480px}
+  .tabs button{flex:1;height:58px;border:0;background:none;color:var(--ink-3);font-size:14px;font-weight:600;position:relative}
+  .tabs button.on{color:var(--teal)}
+  .tabs button.on::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;background:var(--teal);border-radius:0 0 3px 3px}
+  .tabs button b[hidden]{display:none}
+  .tabs button b{display:inline-block;min-width:18px;padding:0 5px;height:18px;line-height:18px;border-radius:9px;background:var(--seal);color:#fff;font-size:11px;margin-left:4px;vertical-align:1px}
+
+  #toast{position:fixed;left:50%;bottom:calc(74px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
+  #toast.show{opacity:1}
+  .banner{background:#F9E9E6;color:var(--seal);border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:10px}
+  .link{background:none;border:0;color:var(--teal);padding:6px 0;text-decoration:underline;font-size:14px}
+</style>
 </head>
 <body>
+<div id="app">
+  <header class="top">
+    <div class="brand">말레이어 단어장</div>
+    <div class="status" id="status"></div>
+  </header>
+  <main id="view"><div class="empty">불러오는 중</div></main>
+  <nav class="tabs" aria-label="메뉴"><div>
+    <button data-tab="review">복습<b id="badge" hidden></b></button>
+    <button data-tab="add">추가</button>
+    <button data-tab="list">단어장</button>
+    <button data-tab="settings">설정</button>
+  </div></nav>
+  <div id="toast" role="status"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const KEY = 'msvocab_v1';
+const APP_VERSION = '2026-09-08 v1';
+const DAY = 86400000;
+const INTERVALS = [0, 1, 3, 7, 14, 30, 60, 120];
+let S = null;
+let storageOK = false;
+let storageInfo = { personal:false, shared:false, lastSave:0, lastError:'' };
+const sync = { url:'', es:null, connected:false, status:'', lastSync:0, lastError:'', pollTimer:null, refetch:null, visBound:false };
+const inIframe = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+let saveTimer = null, saveRetries = 0;
+let tab = 'review';
+let session = { active:false, finished:false, extra:false, queue:[], cur:null, type:null, revealed:false, pending:null, done:0, ok:0 };
+let listState = { q:'', open:null, edit:null };
+let addState = { bulk:false };
+let confirmDelete = null;
+
+// ---------- helpers ----------
+const $ = (s, r) => (r||document).querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const today = () => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), 1800); }
+function relTime(ts){
+  const diff = ts - Date.now();
+  if (diff <= 0) return '지금';
+  const m = Math.round(diff/60000); if (m < 60) return `${m}분 후`;
+  const h = Math.round(diff/3600000); if (h < 24) return `${h}시간 후`;
+  const d = Math.round(diff/DAY); return d === 1 ? '내일' : `${d}일 후`;
+}
+// 말레이어 답 비교용 정규화: 소문자, 앞뒤 공백, 연속 공백, 문장부호(하이픈·아포스트로피는 유지)
+const norm = s => String(s||'').toLowerCase().replace(/[^\p{L}\p{N}\s'\-]/gu, ' ').replace(/\s+/g, ' ').trim();
+function editDistance(a, b){
+  const m = a.length, n = b.length; if (!m) return n; if (!n) return m;
+  let prev = Array.from({ length: n+1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1] + (a[i-1] === b[j-1] ? 0 : 1)); prev = cur; }
+  return prev[n];
+}
+
+// ---------- storage ----------
+function fresh(){ return { version:1, words:[], log:{}, settings:{ mode:'mix', autoAudio:true, speakCards:true, listenCards:true } }; }
+function waitForStorage(ms){
+  return new Promise(res => { const t0 = Date.now(); (function poll(){
+    if (window.storage && window.storage.get) return res(true);
+    if (Date.now() - t0 > ms) return res(false);
+    setTimeout(poll, 100); })(); });
+}
+async function readStore(shared){
+  try { const r = await window.storage.get(KEY, shared); if (r && r.value) { const d = JSON.parse(r.value); if (d && Array.isArray(d.words)) return d; } } catch (e) {}
+  return null;
+}
+function mergeStates(a, b){
+  if (!a && !b) return null; if (!a) return b; if (!b) return a;
+  const map = new Map();
+  for (const w of [...(a.words||[]), ...(b.words||[])]) {
+    const k = norm(w.word); if (!k) continue;
+    const cur = map.get(k);
+    const better = !cur || (w.reps||0) > (cur.reps||0) || ((w.reps||0) === (cur.reps||0) && (w.last||w.added||0) > (cur.last||cur.added||0));
+    if (better) map.set(k, w);
+  }
+  const log = Object.assign({}, a.log||{});
+  for (const k in (b.log||{})) log[k] = log[k] ? { n: Math.max(log[k].n||0, b.log[k].n||0), ok: Math.max(log[k].ok||0, b.log[k].ok||0) } : b.log[k];
+  const newer = (a.updated||0) >= (b.updated||0) ? a : b;
+  return { version:1, words:[...map.values()], log, settings: newer.settings, updated: Date.now() };
+}
+async function load(){
+  sync.url = currentSyncUrl();
+  storageOK = await waitForStorage(inIframe ? (sync.url ? 500 : 3000) : 0);
+  if (storageOK) {
+    const [a, b] = await Promise.all([readStore(false), readStore(true)]);
+    storageInfo.personal = !!a; storageInfo.shared = !!b;
+    S = mergeStates(a, b);
+  }
+  if (!S || !Array.isArray(S.words)) S = fresh();
+  if (sync.url) {
+    try {
+      const remote = await syncFetch();
+      if (remote && remote.words.length) S = remote;
+      else if (S.words.length) await syncPush();
+      sync.status = '연결됨';
+    } catch (e) { sync.lastError = String(e && e.message || e); sync.status = '연결 실패'; }
+  }
+  S.settings = Object.assign(fresh().settings, S.settings||{});
+  S.log = S.log || {};
+}
+function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(doSave, 250); }
+async function doSaveSync(){
+  if (!sync.url) return;
+  try { await syncPush(); } catch (e) { sync.lastError = String(e && e.message || e); toast('동기화 저장 실패: ' + sync.lastError); }
+  updateSyncUI();
+}
+async function doSave(){
+  if (!storageOK) storageOK = !!(window.storage && window.storage.get);
+  S.updated = Date.now();
+  if (sync.url) doSaveSync();
+  if (!storageOK) return;
+  const payload = JSON.stringify(S);
+  try {
+    const r = await window.storage.set(KEY, payload, false);
+    if (!r) throw new Error('empty');
+    saveRetries = 0; storageInfo.lastSave = Date.now(); storageInfo.lastError = '';
+  } catch (e) {
+    storageInfo.lastError = String(e && e.message || e);
+    if (saveRetries < 3) { saveRetries++; setTimeout(doSave, 2500); return; }
+    toast('저장하지 못했어요. 설정에서 내보내기로 백업해 두세요.'); saveRetries = 0;
+  }
+  try { await window.storage.set(KEY, payload, true); } catch (e) {}
+}
+
+// ---------- 기기 간 동기화 (Firebase Realtime Database REST) ----------
+const isFirebaseUrl = u => /firebasedatabase\.app|firebaseio\.com/.test(u || '');
+function randKey(){
+  const a = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let out = '';
+  const r = new Uint32Array(28);
+  if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(r); else for (let i = 0; i < 28; i++) r[i] = Math.floor(Math.random()*4e9);
+  for (let i = 0; i < 28; i++) out += a[r[i] % a.length];
+  return out;
+}
+function normalizeSyncUrl(input){
+  let u = String(input || '').trim(); if (!u) return '';
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+  try {
+    const x = new URL(u);
+    if (isFirebaseUrl(u)) {
+      let path = x.pathname.replace(/\/+$/, '').replace(/\.json$/, '');
+      if (!path || path === '/') path = '/vocab/' + randKey();
+      x.pathname = path + '.json'; x.search = ''; x.hash = '';
+    }
+    return x.toString();
+  } catch (e) { return ''; }
+}
+function currentSyncUrl(){
+  const m = (location.hash || '').match(/sync=([^&]+)/);
+  if (m) { try { return normalizeSyncUrl(decodeURIComponent(m[1])); } catch (e) {} }
+  return normalizeSyncUrl(window.SYNC_URL_DEFAULT || '');
+}
+function rememberSyncUrl(u){
+  try {
+    const h = u ? '#sync=' + encodeURIComponent(u) : '';
+    if (history.replaceState) history.replaceState(null, '', location.pathname + location.search + h); else location.hash = h;
+  } catch (e) {}
+}
+function normalizeState(d){
+  if (!d || typeof d !== 'object') return null;
+  d.words = Array.isArray(d.words) ? d.words : (d.words ? Object.values(d.words) : []);
+  d.words = d.words.filter(w => w && w.word);
+  d.log = d.log || {}; d.settings = Object.assign(fresh().settings, d.settings || {}); d.version = 1;
+  return d;
+}
+async function syncFetch(){
+  const res = await fetch(sync.url, { cache:'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return normalizeState(await res.json());
+}
+async function syncPush(){
+  if (!sync.url) return;
+  const res = await fetch(sync.url, { method:'PUT', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(S) });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  sync.lastSync = Date.now(); sync.lastError = '';
+}
+function applyRemote(d){
+  d = normalizeState(d);
+  if (!d) { if (S.words.length) doSaveSync(); return; }
+  if (d.updated && S.updated && d.updated === S.updated) return;
+  S = d;
+  if (session.active && session.cur) {
+    const w = S.words.find(x => x.id === session.cur.id);
+    if (w) session.cur = w; else { session.queue = session.queue.filter(id => S.words.some(x => x.id === id)); nextCard(); }
+  } else if (session.queue && session.queue.length) session.queue = session.queue.filter(id => S.words.some(x => x.id === id));
+  setStatus();
+  const typing = document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if (tab === 'list' || (tab === 'review' && !typing)) render();
+  if (storageOK) { try { window.storage.set(KEY, JSON.stringify(S), false); } catch (e) {} }
+}
+function refetchSoon(){
+  clearTimeout(sync.refetch);
+  sync.refetch = setTimeout(async () => {
+    if (!sync.url) return;
+    try { applyRemote(await syncFetch()); sync.lastSync = Date.now(); sync.lastError = ''; }
+    catch (e) { sync.lastError = String(e && e.message || e); }
+    updateSyncUI();
+  }, 300);
+}
+function syncDisconnect(){
+  if (sync.es) { try { sync.es.close(); } catch (e) {} sync.es = null; }
+  clearInterval(sync.pollTimer); sync.pollTimer = null; sync.connected = false;
+}
+function syncConnect(){
+  syncDisconnect();
+  if (!sync.url) return;
+  if (isFirebaseUrl(sync.url) && 'EventSource' in window) {
+    try {
+      const es = new EventSource(sync.url); sync.es = es;
+      es.onopen = () => { sync.connected = true; sync.status = '실시간 연결됨'; updateSyncUI(); };
+      es.onerror = () => { sync.connected = false; sync.status = '재연결 중…'; updateSyncUI(); };
+      es.addEventListener('put', e => {
+        try { const m = JSON.parse(e.data); if (m.path === '/') applyRemote(m.data); else refetchSoon(); } catch (x) {}
+        sync.connected = true; sync.status = '실시간 연결됨'; sync.lastSync = Date.now(); updateSyncUI();
+      });
+      es.addEventListener('patch', () => refetchSoon());
+      es.addEventListener('cancel', () => { sync.connected = false; sync.status = '권한 거부 — Firebase 규칙을 확인하세요'; updateSyncUI(); });
+      es.addEventListener('auth_revoked', () => { sync.connected = false; sync.status = '인증 만료'; updateSyncUI(); });
+    } catch (e) { startPolling(); }
+  } else startPolling();
+  if (!sync.visBound) {
+    sync.visBound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || !sync.url) return;
+      if (sync.es && sync.es.readyState === 2) syncConnect(); else refetchSoon();
+    });
+  }
+}
+function startPolling(){ clearInterval(sync.pollTimer); sync.pollTimer = setInterval(refetchSoon, 20000); sync.status = '20초마다 동기화'; sync.connected = true; updateSyncUI(); }
+async function connectSync(input){
+  const u = normalizeSyncUrl(input);
+  if (!u) { toast('주소 형식을 확인해 주세요'); return; }
+  syncDisconnect(); sync.url = u; sync.lastError = ''; sync.status = '연결 중…'; updateSyncUI();
+  try {
+    const remote = await syncFetch();
+    if (remote && remote.words.length) { S = S.words.length ? mergeStates(S, remote) : remote; await syncPush(); }
+    else if (S.words.length) await syncPush();
+    rememberSyncUrl(u); syncConnect(); if (sync.status === '연결 중…') sync.status = '연결됨';
+    toast(`동기화 연결됨 — ${S.words.length}단어`); save();
+  } catch (e) { sync.lastError = String(e && e.message || e); sync.status = '연결 실패'; toast('연결 실패: ' + sync.lastError); }
+  render();
+}
+function disconnectSync(){ syncDisconnect(); sync.url = ''; sync.status = ''; sync.lastError = ''; rememberSyncUrl(''); toast('동기화를 해제했어요'); render(); }
+function syncStatusText(){
+  if (!sync.url) return '동기화 안 함 — 이 기기(또는 이 저장소)에만 저장돼요.';
+  const t = sync.lastSync ? ` · 마지막 동기화 ${new Date(sync.lastSync).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' })}` : '';
+  return (sync.status || '연결 중…') + t + (sync.lastError ? ` · 오류: ${sync.lastError}` : '');
+}
+function updateSyncUI(){ const el = $('#syncStatus'); if (el) el.textContent = syncStatusText(); setStatus(); }
+
+// ---------- 음성: TTS(말레이어, 없으면 인도네시아어) / 음성 인식 ----------
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+const speechOK = !!SR;
+let voices = [];
+function loadVoices(){ try { voices = speechSynthesis.getVoices() || []; } catch (e) { voices = []; } }
+const ttsBase = ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window);
+if (ttsBase) { loadVoices(); try { speechSynthesis.onvoiceschanged = loadVoices; } catch (e) {} }
+function pickVoice(){ return voices.find(v => /^ms/i.test(v.lang)) || voices.find(v => /^id/i.test(v.lang)) || null; }
+function ttsOK(){ return ttsBase && (!voices.length || !!pickVoice()); }   // 목소리 목록이 아직 없으면 일단 시도
+function speak(text){
+  if (!ttsBase) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const v = pickVoice();
+    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'ms-MY';
+    u.rate = 0.85;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+// ---------- words ----------
+function findByWord(word){ const k = norm(word); return S.words.find(w => norm(w.word) === k); }
+function addWord({word, mean, ex}){
+  const w = { id: uid(), word: word.trim(), mean: mean.trim(), ex: (ex||'').trim(), added: Date.now(), stage: 0, due: Date.now(), reps: 0, lapses: 0, last: 0 };
+  S.words.push(w); return w;
+}
+function dueCards(){ const now = Date.now(); return S.words.filter(w => w.due <= now).sort((a,b) => a.due - b.due); }
+function logToday(ok){ const k = today(); const l = S.log[k] || (S.log[k] = { n:0, ok:0 }); l.n++; if (ok) l.ok++; }
+function applyGrade(w, result, extra){
+  const now = Date.now();
+  w.reps = (w.reps||0) + 1; w.last = now;
+  if (result === 'fail') { w.lapses = (w.lapses||0) + 1; w.stage = 0; w.due = now + 10*60000; }
+  else if (!extra) {
+    if (result === 'hard') { w.due = now + DAY; }
+    else { w.stage = Math.min(INTERVALS.length-1, (w.stage||0) + 1); w.due = now + INTERVALS[w.stage]*DAY; }
+  }
+  logToday(result !== 'fail');
+  save();
+}
+function stagebar(stage){ return `<span class="stagebar">${INTERVALS.map((_,i)=>`<i class="${i<=stage&&stage>0?'on':''}"></i>`).join('')}</span>`; }
+const sheet = (text, small) => `<div class="sheet"><div class="word ${small ? 'sm' : ''}">${esc(text)}</div></div>`;
+
+// ---------- session ----------
+function startSession(extra){
+  let cards = dueCards();
+  if (extra) cards = shuffle(S.words.slice()).slice(0, 10);
+  if (!cards.length) { session.active = false; return false; }
+  session = { active:true, finished:false, extra, queue: cards.map(w => w.id), cur:null, type:null, revealed:false, pending:null, done:0, ok:0 };
+  nextCard();
+  return true;
+}
+function pickType(w){
+  const m = S.settings.mode;
+  const canListen = ttsOK() && S.settings.listenCards !== false;
+  const canSpeak = speechOK && S.settings.speakCards !== false;
+  if (m === 'listen') return ttsOK() ? 'listen' : 'type';
+  if (m === 'speak') return speechOK ? 'speak' : 'recog';
+  if (m !== 'mix') return m;
+  if (!w.reps) return 'recog';
+  const pool = ['recog', 'type', 'type'];
+  if (canListen) pool.push('listen');
+  if (canSpeak) pool.push('speak');
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function nextCard(){
+  session.revealed = false; session.pending = null; session.spoken = false;
+  session.attempts = 0; session.listening = false; session.speakMsg = ''; session.hint = false;
+  if (session.rec) { try { session.rec.abort(); } catch (e) {} session.rec = null; }
+  while (session.queue.length) {
+    const id = session.queue.shift();
+    const w = S.words.find(x => x.id === id);
+    if (w) { session.cur = w; session.type = pickType(w); return; }
+  }
+  session.cur = null; session.finished = true; session.active = false;
+}
+function finishCard(result){
+  const w = session.cur;
+  applyGrade(w, result, session.extra);
+  session.done++; if (result !== 'fail') session.ok++;
+  if (result === 'fail') session.queue.push(w.id);
+  nextCard();
+  render();
+}
+
+// ---------- render ----------
+function setStatus(){
+  const due = dueCards().length;
+  const l = S.log[today()] || { n:0 };
+  const syncTxt = sync.url ? (sync.connected ? ', 동기화 중' : ', 동기화 연결 중') : '';
+  $('#status').textContent = S.words.length ? `총 ${S.words.length}단어, 오늘 ${l.n}개 복습${syncTxt}` : (sync.url ? syncTxt.slice(2) : '');
+  const b = $('#badge'); b.hidden = !due; b.textContent = due;
+}
+function render(){
+  setStatus();
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  const v = $('#view');
+  if (tab === 'review') renderReview(v);
+  else if (tab === 'add') renderAdd(v);
+  else if (tab === 'list') renderList(v);
+  else renderSettings(v);
+  window.scrollTo(0, 0);
+}
+function nextDueText(){
+  const future = S.words.filter(w => w.due > Date.now()).map(w => w.due);
+  return future.length ? relTime(Math.min(...future)) : '없음';
+}
+
+function renderReview(v){
+  if (!S.words.length) {
+    v.innerHTML = `<section class="card empty">${sheet('Selamat datang', true)}
+      <p style="margin-top:18px">아직 단어가 없어요.<br>새 단어를 추가하면 여기서 바로 복습할 수 있어요.</p>
+      <button class="btn primary" data-go="add">단어 추가</button></section>`;
+    return;
+  }
+  if (session.finished) {
+    v.innerHTML = `<section class="card center">
+      <div class="stamp pop">${session.ok === session.done ? 'Bagus!' : 'Betul'}</div>
+      <p class="meaning">${session.done}개 복습, ${session.ok}개 맞았어요</p>
+      <p class="muted small">${dueCards().length ? `대기 카드가 ${dueCards().length}개 더 있어요.` : `다음 복습은 ${nextDueText()}.`}</p>
+      ${dueCards().length ? `<button class="btn primary" data-act="start">이어서 복습</button>` : ''}
+      <button class="btn" data-act="extra">랜덤으로 10개 더 복습</button>
+      <button class="btn quiet" data-go="add">새 단어 추가</button></section>`;
+    session.finished = false;
+    return;
+  }
+  if (!session.active) {
+    if (startSession(false)) { renderReview(v); return; }
+    v.innerHTML = `<section class="card empty">${sheet('Rehat dulu', true)}
+      <p style="margin-top:18px">지금 복습할 카드가 없어요.<br>다음 복습은 <strong>${nextDueText()}</strong>예요.</p>
+      <button class="btn" data-act="extra">랜덤으로 10개 미리 복습</button>
+      <p class="hint" style="margin-top:8px">미리 복습에서는 틀린 카드만 다시 대기열에 들어가요.</p>
+      <button class="btn quiet" data-go="add">새 단어 추가</button></section>`;
+    return;
+  }
+
+  const w = session.cur, t = session.type, p = session.pending;
+  const remain = session.queue.length + 1;
+  const pct = Math.round(session.done / (session.done + remain) * 100);
+  const head = `<div class="progress" aria-hidden="true"><i style="width:${pct}%"></i></div>
+    <p class="small muted center" style="margin:-6px 0 8px">${session.extra ? '미리 복습' : '복습'} — 남은 카드 ${remain}개</p>`;
+  const audio = ttsOK() ? `<button class="iconbtn" data-act="speak" aria-label="발음 듣기">듣기</button>` : '';
+  const answerBlock = (showWord) => `
+    ${showWord ? sheet(w.word) : ''}
+    <div class="meaning">${esc(w.mean)}</div>
+    ${w.ex ? `<div class="example"><span class="word-inline">${esc(w.ex)}</span></div>` : ''}`;
+  const resultView = (extraTop, extraButtons) => `<section class="card center">
+    <div class="stamp pop ${p.result === 'fail' ? 'wrong' : ''}">${p.result === 'fail' ? 'Salah' : 'Betul'}</div>
+    <div class="verdict">${p.gaveUp ? '정답을 확인하세요' : p.result === 'pass' ? (p.near ? '거의 맞았어요 (철자 확인)' : '맞았어요') : (p.heard !== undefined ? '다르게 들렸어요' : '틀렸어요')}</div>
+    ${extraTop || ''}
+    ${answerBlock(true)}
+    <div class="gap"></div>${audio}
+    <div class="gap"></div>
+    <button class="btn primary" data-act="next">다음</button>
+    ${extraButtons || ''}</section>`;
+
+  let body = '';
+  if (t === 'recog') {
+    body = `<section class="card center">${sheet(w.word)}
+      <div class="gap"></div>${audio}
+      ${session.revealed ? `<div class="meaning">${esc(w.mean)}</div>
+        ${w.ex ? `<div class="example"><span class="word-inline">${esc(w.ex)}</span></div>` : ''}
+        <div class="gap-l"></div>
+        <div class="row">
+          <button class="btn fail" data-grade="fail">틀렸어요</button>
+          <button class="btn" data-grade="hard">애매해요</button>
+          <button class="btn pass" data-grade="pass">맞았어요</button>
+        </div>`
+      : `<div class="gap"></div><p class="hint">뜻을 떠올리고, 소리 내어 읽어 보세요</p>
+         <button class="btn primary" data-act="reveal">정답 보기</button>`}
+      </section>`;
+  } else if (t === 'type' || t === 'listen') {
+    const isListen = t === 'listen';
+    if (!p) {
+      const prompt = isListen
+        ? `<p class="hint" style="margin-top:4px">발음을 듣고 단어를 입력하세요</p><button class="iconbtn" data-act="speak">다시 듣기</button>
+           <div id="whint" class="meaning" style="min-height:28px;margin-top:8px">${session.hint ? esc(w.mean) : `<button class="link" data-act="hint">뜻 힌트</button>`}</div>`
+        : `<div class="prompt-mean">${esc(w.mean)}</div><p class="hint">말레이어 단어를 입력하세요</p>`;
+      body = `<section class="card center">${prompt}
+        <div class="answer-row"><input type="text" id="ans" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="jawapan" aria-label="단어 입력"><button class="btn primary" data-act="check">확인</button></div>
+        <button class="btn quiet" data-act="giveup">모르겠어요</button></section>`;
+    } else {
+      body = resultView(p.result === 'fail' && p.typed ? `<div class="typed">${esc(p.typed)}</div>` : (p.near ? `<div class="typed" style="text-decoration:none">${esc(p.typed)}</div>` : ''),
+        p.result === 'fail' && !p.gaveUp ? `<button class="link" data-act="override">오타였어요, 맞은 것으로 처리</button>` : '');
+    }
+  } else if (t === 'speak') {
+    if (!p) {
+      body = `<section class="card center">${sheet(w.word)}
+        <div class="gap"></div>${audio}
+        <p class="hint" style="margin-top:12px">${session.listening ? '듣고 있어요… 또박또박 읽으세요' : esc(session.speakMsg || '말하기를 누르고 이 단어를 소리 내어 읽으세요')}</p>
+        <button class="btn primary" data-act="listen" ${session.listening ? 'disabled' : ''}>${session.listening ? '듣는 중…' : (session.attempts ? '다시 말하기' : '말하기')}</button>
+        <button class="btn quiet" data-act="giveup">건너뛰기 (틀림으로)</button></section>`;
+    } else {
+      body = resultView(p.heard ? `<div class="heard">들린 말: <span class="word-inline">${esc(p.heard)}</span></div>` : '',
+        `${!p.gaveUp ? `<button class="btn" data-act="listen">다시 말하기</button>` : ''}
+         ${p.result === 'fail' && !p.gaveUp ? `<button class="link" data-act="override">인식이 잘못됐어요, 맞은 것으로 처리</button>` : ''}`);
+    }
+  }
+  v.innerHTML = head + body;
+  const inp = $('#ans');
+  if (inp) { inp.focus(); inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); checkAnswer(); } }); }
+  if (t === 'listen' && !p && !session.spoken) { session.spoken = true; speak(w.word); }
+  if (p && S.settings.autoAudio && !p.spoken) { p.spoken = true; speak(w.word); }
+  if (t === 'recog' && session.revealed && S.settings.autoAudio && !session.spoken) { session.spoken = true; speak(w.word); }
+}
+function checkAnswer(){
+  const inp = $('#ans'); if (!inp) return;
+  const typed = inp.value.trim();
+  if (!typed) { inp.focus(); return; }
+  const a = norm(typed), b = norm(session.cur.word);
+  const ok = a === b;
+  const near = !ok && b.length >= 5 && editDistance(a, b) === 1;   // 한 글자 차이는 맞은 것으로, 철자 확인 표시
+  session.pending = { result: ok || near ? 'pass' : 'fail', typed, near, gaveUp:false };
+  render();
+}
+function startListening(){
+  if (!speechOK || !session.cur) return;
+  try { if (ttsBase) speechSynthesis.cancel(); } catch (e) {}
+  try {
+    const r = new SR(); r.lang = 'ms-MY'; r.interimResults = false; r.maxAlternatives = 5; r.continuous = false;
+    session.rec = r; session.listening = true; session.pending = null; session.speakMsg = ''; render();
+    let got = false;
+    r.onresult = e => {
+      got = true; const alts = [];
+      for (let i = 0; i < e.results.length; i++) { const res = e.results[i]; for (let j = 0; j < res.length; j++) alts.push(res[j].transcript); }
+      session.listening = false; session.attempts++; session.pending = judgeSpeech(session.cur, alts); render();
+    };
+    r.onerror = e => {
+      session.listening = false; const code = e && e.error;
+      session.speakMsg = code === 'not-allowed' || code === 'service-not-allowed' ? '마이크 권한을 허용해 주세요.' : code === 'no-speech' ? '소리를 잡지 못했어요. 다시 말해 보세요.' : code === 'network' ? '음성 인식 서버에 연결하지 못했어요.' : code === 'language-not-supported' ? '이 기기는 말레이어 음성 인식을 지원하지 않아요.' : '인식 오류가 났어요. 다시 시도해 주세요.';
+      render();
+    };
+    r.onend = () => { if (session.listening) { session.listening = false; if (!got) session.speakMsg = '소리를 잡지 못했어요. 다시 말해 보세요.'; render(); } };
+    r.start();
+  } catch (e) { session.listening = false; session.speakMsg = '이 브라우저에서는 음성 인식을 쓸 수 없어요.'; render(); }
+}
+function judgeSpeech(w, alts){
+  const target = norm(w.word);
+  let best = null;
+  for (const raw of alts) {
+    const heard = norm(raw); if (!heard) continue;
+    const words = heard.split(' ');
+    const exact = heard === target || (target.includes(' ') ? heard.includes(target) : words.includes(target));
+    const near = !exact && target.length >= 5 && Math.min(...words.map(x => editDistance(x, target)), editDistance(heard, target)) <= 1;
+    const score = exact ? 2 : near ? 1 : 0;
+    if (!best || score > best.score) best = { score, heard: String(raw).trim() };
+    if (score === 2) break;
+  }
+  if (!best) return { result:'fail', heard:'', gaveUp:false };
+  return { result: best.score >= 1 ? 'pass' : 'fail', near: best.score === 1, heard: best.heard, gaveUp:false };
+}
+
+function renderAdd(v){
+  v.innerHTML = `<section class="card">
+    ${storageOK || sync.url ? '' : `<div class="banner">이 화면에서는 자동 저장이 되지 않아요. 설정 탭에서 동기화 주소를 연결하거나 Claude 앱 안에서 열어 주세요.</div>`}
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h2 style="margin:0">${addState.bulk ? '여러 개 한 번에 추가' : '새 단어'}</h2>
+      <button class="link" data-act="toggleBulk">${addState.bulk ? '하나씩 추가' : '여러 개 한 번에'}</button>
+    </div>
+    ${addState.bulk ? `
+      <label for="bulk">한 줄에 하나씩: 단어, 뜻, 예문(선택)</label>
+      <textarea id="bulk" placeholder="terima kasih, 감사합니다, Terima kasih banyak!
+selamat pagi, 좋은 아침이에요"></textarea>
+      <div class="field-note">쉼표나 탭으로 구분. 이미 있는 단어는 건너뛰어요.</div>
+      <button class="btn primary" data-act="saveBulk">모두 저장</button>`
+    : `
+      <label for="word">말레이어 단어</label>
+      <input type="text" id="word" class="input-word" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="terima kasih">
+      <label for="mean">뜻</label>
+      <input type="text" id="mean" autocomplete="off" placeholder="감사합니다">
+      <label for="ex">예문 (선택)</label>
+      <input type="text" id="ex" class="input-word" style="font-size:18px" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Terima kasih banyak!">
+      <button class="btn primary" data-act="saveOne">저장</button>
+      <p class="hint center" style="margin-top:10px">저장하면 곧바로 복습 대기열에 들어가요.</p>`}
+    </section>`;
+  const wi = $('#word');
+  if (wi) {
+    wi.focus();
+    ['word','mean','ex'].forEach(id => $('#'+id).addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return; e.preventDefault();
+      const order = ['word','mean','ex']; const i = order.indexOf(id);
+      if (i < 2 && !$('#'+order[i+1]).value) $('#'+order[i+1]).focus(); else saveOne();
+    }));
+  }
+}
+function saveOne(){
+  const word = $('#word').value.trim(), mean = $('#mean').value.trim(), ex = $('#ex').value.trim();
+  if (!word) { toast('단어를 입력해 주세요'); $('#word').focus(); return; }
+  if (!mean) { toast('뜻을 입력해 주세요'); $('#mean').focus(); return; }
+  const dup = findByWord(word);
+  if (dup) { toast(`${dup.word} 는 이미 있어요. 단어장에서 수정할 수 있어요.`); return; }
+  addWord({ word, mean, ex }); save();
+  toast(`저장됨: ${word}`);
+  ['word','mean','ex'].forEach(id => { $('#'+id).value = ''; });
+  $('#word').focus(); setStatus();
+}
+function parseLines(raw){
+  let added = 0, skipped = 0, bad = 0;
+  raw.split(/\n+/).map(l => l.trim()).filter(Boolean).forEach(line => {
+    const parts = line.split(/\t|,|，/).map(x => x.trim());
+    if (parts.length < 2 || !parts[0] || !parts[1]) { bad++; return; }
+    const [word, mean, ...rest] = parts;
+    if (findByWord(word)) { skipped++; return; }
+    addWord({ word, mean, ex: rest.join(', ') }); added++;
+  });
+  return { added, skipped, bad };
+}
+function saveBulk(){
+  const r = parseLines($('#bulk').value);
+  if (r.added) save();
+  toast(`${r.added}개 저장${r.skipped ? `, ${r.skipped}개 중복 건너뜀` : ''}${r.bad ? `, ${r.bad}줄 형식 오류` : ''}`);
+  if (r.added) { $('#bulk').value = ''; setStatus(); }
+}
+
+function listHtml(){
+  const q = listState.q.trim().toLowerCase();
+  const words = S.words.slice().sort((a,b) => b.added - a.added).filter(w => !q || w.word.toLowerCase().includes(q) || w.mean.toLowerCase().includes(q) || (w.ex||'').toLowerCase().includes(q));
+  const stageText = w => w.stage >= INTERVALS.length-1 ? '장기 기억' : (w.due <= Date.now() ? '복습 대기' : `다음 ${relTime(w.due)}`);
+  if (!words.length) return `<section class="card empty">${S.words.length ? '검색 결과가 없어요.' : '아직 단어가 없어요. 추가 탭에서 첫 단어를 넣어 보세요.'}</section>`;
+  return `<div class="wlist">${words.map(w => {
+      const open = listState.open === w.id, edit = listState.edit === w.id;
+      return `<div class="witem">
+        <button class="whead" data-open="${w.id}" aria-expanded="${open}">
+          <span class="wword">${esc(w.word)}<div>${esc(w.mean)}</div></span>
+          <span class="wdue">${stageText(w)}</span>
+        </button>
+        ${open ? `<div class="wbody">${edit ? `
+            <label>단어</label><input type="text" class="input-word" id="e-word" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(w.word)}">
+            <label>뜻</label><input type="text" id="e-mean" value="${esc(w.mean)}">
+            <label>예문</label><input type="text" class="input-word" style="font-size:18px" id="e-ex" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(w.ex||'')}">
+            <div class="row"><button class="btn" data-act="cancelEdit">취소</button><button class="btn primary" data-save="${w.id}">저장</button></div>`
+          : `
+            ${w.ex ? `<div class="example" style="margin:0 0 8px"><span class="word-inline">${esc(w.ex)}</span></div>` : ''}
+            <div>단계 ${stagebar(w.stage)} <span style="margin-left:8px">맞음 ${(w.reps||0)-(w.lapses||0)}, 틀림 ${w.lapses||0}</span></div>
+            <div class="row">
+              ${ttsOK() ? `<button class="btn" data-speak="${w.id}">듣기</button>` : ''}
+              <button class="btn" data-edit="${w.id}">수정</button>
+              <button class="btn ${confirmDelete === w.id ? 'danger' : ''}" data-del="${w.id}">${confirmDelete === w.id ? '정말 삭제' : '삭제'}</button>
+            </div>`}</div>` : ''}
+      </div>`; }).join('')}</div>`;
+}
+function renderList(v){
+  v.innerHTML = `<input type="text" class="search" id="q" placeholder="단어, 뜻으로 찾기" value="${esc(listState.q)}" aria-label="검색"><div id="wl"></div>`;
+  const qi = $('#q');
+  qi.addEventListener('input', () => { listState.q = qi.value; listState.open = null; $('#wl').innerHTML = listHtml(); });
+  $('#wl').innerHTML = listHtml();
+}
+function refreshList(){ const wl = $('#wl'); if (wl) wl.innerHTML = listHtml(); else renderList($('#view')); }
+
+function renderSettings(v){
+  const modes = [
+    ['mix', '섞어서', '새 단어는 먼저 보고, 이후엔 여러 방식이 무작위로'],
+    ['recog', '단어 보고 뜻 떠올리기', '뜻을 스스로 말하고 정답 확인'],
+    ['type', '뜻 보고 단어 입력', '철자까지 채점. 한 글자 차이는 맞은 것으로 보되 표시해 줘요'],
+    ['listen', '발음 듣고 단어 입력', ttsOK() ? '듣기 연습. 기기의 말레이어 음성을 사용해요' : '이 기기에는 말레이어(또는 인도네시아어) 음성이 없어요'],
+    ['speak', '단어 보고 소리 내어 읽기', speechOK ? '마이크로 발음을 인식해 이 단어로 들렸는지 확인해요' : '이 브라우저는 음성 인식을 지원하지 않아요']
+  ];
+  v.innerHTML = `<section class="card">
+    <h2>기기 간 동기화</h2>
+    <p class="small muted" style="margin:0 0 4px">Firebase Realtime Database 주소를 연결하면 PC와 휴대폰이 같은 단어장을 실시간으로 봅니다.</p>
+    <label for="syncUrl">동기화 주소</label>
+    <input type="text" id="syncUrl" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(sync.url)}" placeholder="https://프로젝트-default-rtdb.asia-southeast1.firebasedatabase.app">
+    <div class="field-note">DB 주소만 넣으면 비밀 키를 자동으로 만들어 완성해요. 중국어 단어장과 같은 DB를 써도 경로가 달라 섞이지 않아요.</div>
+    <div class="row"><button class="btn" data-act="syncOff" ${sync.url ? '' : 'disabled'}>해제</button><button class="btn primary" data-act="syncOn">연결</button></div>
+    <p class="small" id="syncStatus" style="margin:10px 0 0">${esc(syncStatusText())}</p>
+    ${sync.url ? `<button class="btn" data-act="copySync">완성된 주소 복사</button><p class="hint" style="margin-top:8px">연결한 뒤 이 페이지를 홈 화면에 추가하거나 북마크하면 주소가 함께 저장돼요.</p>` : ''}
+    </section>
+    <div class="gap"></div>
+    <section class="card">
+    <h2>복습 방식</h2>
+    ${modes.map(([k, t, d]) => `<label class="radio"><input type="radio" name="mode" value="${k}" ${S.settings.mode===k?'checked':''}><div>${t}<span class="small muted">${d}</span></div></label>`).join('')}
+    <label class="radio" style="border-top:1px solid var(--line);margin-top:4px"><input type="checkbox" id="listenCards" ${S.settings.listenCards !== false ? 'checked' : ''}><div>'섞어서'에 듣기 카드 포함</div></label>
+    <label class="radio"><input type="checkbox" id="speakCards" ${speechOK && S.settings.speakCards !== false ? 'checked' : ''} ${speechOK ? '' : 'disabled'}><div>'섞어서'에 발음 확인 카드 포함<span class="small muted">${speechOK ? '음성 인식기가 이 단어로 알아들었는지를 봐요. 완벽한 발음 채점은 아니에요' : '이 브라우저는 음성 인식을 지원하지 않아요 (Chrome, Safari에서 가능)'}</span></div></label>
+    <label class="radio"><input type="checkbox" id="autoAudio" ${S.settings.autoAudio?'checked':''}><div>정답이 보일 때 발음 자동 재생<span class="small muted">${ttsBase ? (pickVoice() && /^id/i.test(pickVoice().lang) ? '말레이어 음성이 없어 인도네시아어 음성으로 읽어요' : '기기의 말레이어 음성을 사용해요') : '이 기기에서는 음성 재생을 지원하지 않아요'}</span></div></label>
+    </section>
+    <div class="gap"></div>
+    <section class="card">
+    <h2>저장 상태</h2>
+    <p class="small" style="margin:0 0 4px">${sync.url ? '동기화 주소에 저장하고 있어요. ' : ''}${storageOK ? `이 기기에서 저장 가능${storageInfo.lastSave ? ` · 마지막 저장 ${new Date(storageInfo.lastSave).toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'})}` : ''}` : (sync.url ? '' : '이 화면에서는 저장이 지원되지 않아요. Claude 앱 안에서 열어 주세요.')}</p>
+    <p class="small muted" style="margin:0 0 10px">PC와 휴대폰에 단어가 서로 다르게 보이면: 단어가 있는 쪽에서 아래 '학습 기록 포함'을 복사해 다른 기기에 붙여 넣고 '가져오기'를 누르세요. 중복은 자동으로 합쳐져요.</p>
+    <h2>백업</h2>
+    <div class="row"><button class="btn" data-act="exportTsv">단어만 (Anki용)</button><button class="btn" data-act="exportJson">학습 기록 포함</button></div>
+    <textarea id="io" placeholder="내보내기를 누르면 여기에 나타나요. 가져올 때는 여기에 붙여 넣으세요." style="margin-top:10px"></textarea>
+    <div class="row"><button class="btn" data-act="copy">복사</button><button class="btn primary" data-act="import">가져오기</button></div>
+    </section>
+    <div class="gap"></div>
+    <section class="card">
+    <h2>데이터</h2>
+    <p class="small muted" style="margin:0">총 ${S.words.length}단어, 복습 ${Object.values(S.log).reduce((a,l)=>a+l.n,0)}회 · 앱 버전 ${APP_VERSION}</p>
+    <button class="btn ${confirmDelete === '*' ? 'danger' : ''}" data-act="wipe">${confirmDelete === '*' ? '정말 모두 삭제' : '모든 단어 삭제'}</button>
+    </section>`;
+  document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', () => { S.settings.mode = r.value; save(); toast('복습 방식 변경됨'); }));
+  $('#autoAudio').addEventListener('change', e => { S.settings.autoAudio = e.target.checked; save(); });
+  $('#listenCards').addEventListener('change', e => { S.settings.listenCards = e.target.checked; save(); });
+  $('#speakCards').addEventListener('change', e => { S.settings.speakCards = e.target.checked; save(); });
+}
+function exportTsv(){ $('#io').value = S.words.map(w => [w.word, w.mean, w.ex||''].join('\t')).join('\n'); toast('탭으로 구분된 단어 목록을 만들었어요'); }
+function exportJson(){ $('#io').value = JSON.stringify(S); toast('학습 기록을 포함한 백업을 만들었어요'); }
+async function copyIo(){
+  const t = $('#io'); if (!t.value) { toast('먼저 내보내기를 눌러 주세요'); return; }
+  try { await navigator.clipboard.writeText(t.value); toast('복사했어요'); }
+  catch (e) { t.focus(); t.select(); toast('길게 눌러 복사하세요'); }
+}
+function importIo(){
+  const raw = $('#io').value.trim(); if (!raw) { toast('가져올 내용을 붙여 넣어 주세요'); return; }
+  if (raw[0] === '{') {
+    try {
+      const d = JSON.parse(raw);
+      if (!Array.isArray(d.words)) throw 0;
+      let added = 0, updated = 0;
+      d.words.forEach(w => {
+        if (!(w.word && w.mean)) return;
+        const cur = findByWord(w.word);
+        if (!cur) { S.words.push(Object.assign({ id: uid(), added: Date.now(), stage:0, due: Date.now(), reps:0, lapses:0, last:0, ex:'' }, w)); added++; }
+        else if ((w.reps||0) > (cur.reps||0)) { Object.assign(cur, { stage:w.stage, due:w.due, reps:w.reps, lapses:w.lapses, last:w.last }); updated++; }
+      });
+      if (d.log) Object.keys(d.log).forEach(k => { if (!S.log[k]) S.log[k] = d.log[k]; });
+      save(); toast(`${added}개 단어를 가져왔어요${updated ? `, ${updated}개는 복습 기록을 최신으로 맞췼어요` : ''}`); setStatus(); return;
+    } catch (e) { toast('백업 형식을 읽을 수 없어요'); return; }
+  }
+  const r = parseLines(raw);
+  if (r.added) save();
+  toast(`${r.added}개 저장${r.skipped ? `, ${r.skipped}개 중복` : ''}${r.bad ? `, ${r.bad}줄 오류` : ''}`); setStatus();
+}
+
+// ---------- events ----------
+document.querySelector('.tabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-tab]'); if (!b) return;
+  tab = b.dataset.tab; confirmDelete = null; render();
+});
+$('#view').addEventListener('click', e => {
+  const t = e.target.closest('[data-act],[data-grade],[data-go],[data-open],[data-edit],[data-del],[data-save],[data-speak]');
+  if (!t) return;
+  const d = t.dataset;
+  if (d.go) { tab = d.go; render(); return; }
+  if (d.grade) { finishCard(d.grade); return; }
+  if (d.speak) { const w = S.words.find(x => x.id === d.speak); if (w) speak(w.word); return; }
+  if (d.open) { listState.open = listState.open === d.open ? null : d.open; listState.edit = null; confirmDelete = null; refreshList(); return; }
+  if (d.edit) { listState.edit = d.edit; refreshList(); return; }
+  if (d.del) {
+    if (confirmDelete !== d.del) { confirmDelete = d.del; refreshList(); return; }
+    S.words = S.words.filter(w => w.id !== d.del); confirmDelete = null; listState.open = null; save(); toast('삭제했어요'); render(); return;
+  }
+  if (d.save) {
+    const w = S.words.find(x => x.id === d.save); if (!w) return;
+    const word = $('#e-word').value.trim(), mean = $('#e-mean').value.trim(), ex = $('#e-ex').value.trim();
+    if (!word || !mean) { toast('단어와 뜻을 확인해 주세요'); return; }
+    const dup = findByWord(word); if (dup && dup.id !== w.id) { toast('같은 단어가 이미 있어요'); return; }
+    Object.assign(w, { word, mean, ex }); save(); listState.edit = null; toast('수정했어요'); refreshList(); return;
+  }
+  switch (d.act) {
+    case 'reveal': session.revealed = true; session.spoken = false; render(); break;
+    case 'speak': speak(session.cur.word); break;
+    case 'check': checkAnswer(); break;
+    case 'giveup': session.pending = { result:'fail', typed:'', gaveUp:true }; render(); break;
+    case 'override': session.pending.result = 'pass'; session.pending.near = false; render(); break;
+    case 'next': finishCard(session.pending.result); break;
+    case 'hint': session.hint = true; { const el = $('#whint'); if (el && session.cur) el.textContent = session.cur.mean; } break;
+    case 'listen': startListening(); break;
+    case 'start': startSession(false); render(); break;
+    case 'extra': if (!startSession(true)) toast('복습할 단어가 없어요'); render(); break;
+    case 'toggleBulk': addState.bulk = !addState.bulk; render(); break;
+    case 'saveOne': saveOne(); break;
+    case 'saveBulk': saveBulk(); break;
+    case 'cancelEdit': listState.edit = null; refreshList(); break;
+    case 'syncOn': connectSync($('#syncUrl').value); break;
+    case 'syncOff': disconnectSync(); break;
+    case 'copySync': (async () => { try { await navigator.clipboard.writeText(sync.url); toast('주소를 복사했어요'); } catch (e) { const i = $('#syncUrl'); if (i) { i.focus(); i.select(); } toast('길게 눌러 복사하세요'); } })(); break;
+    case 'exportTsv': exportTsv(); break;
+    case 'exportJson': exportJson(); break;
+    case 'copy': copyIo(); break;
+    case 'import': importIo(); break;
+    case 'wipe':
+      if (confirmDelete !== '*') { confirmDelete = '*'; render(); return; }
+      S.words = []; S.log = {}; confirmDelete = null; session = { active:false, finished:false, queue:[] }; save(); toast('모두 삭제했어요'); render(); break;
+  }
+});
+
+// ---------- boot ----------
+load().then(() => { tab = dueCards().length || !S.words.length ? 'review' : 'add'; render(); if (sync.url) syncConnect(); });
+})();
+</script>
 </body>
 </html>
