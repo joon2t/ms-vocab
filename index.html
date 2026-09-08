@@ -121,6 +121,15 @@
   .radio div{flex:1}
   .radio .small{display:block}
 
+  .dict{margin-top:8px;border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:8px;padding:10px 12px;font-size:14px;background:var(--white)}
+  .dict.warn{border-left-color:var(--seal)}
+  .dict.wait{border-left-color:var(--line);color:var(--ink-3)}
+  .dict h3{margin:0 0 4px;font-size:13px;font-weight:600;color:var(--ink-2)}
+  .dict .pos{color:var(--ink-3);font-size:12px;margin-right:6px}
+  .dict .def{margin:2px 0}
+  .dict .row .btn{height:42px;font-size:14px}
+  .gloss{font-size:14px;color:var(--ink-2);margin-top:6px}
+  .wflag{display:inline-block;font-size:11px;color:var(--seal);border:1px solid var(--seal);border-radius:4px;padding:0 5px;line-height:16px;margin-bottom:3px}
   .empty{padding:30px 10px;text-align:center;color:var(--ink-2)}
 
   .tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;background:var(--white);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
@@ -157,7 +166,7 @@
 (function(){
 'use strict';
 const KEY = 'msvocab_v1';
-const APP_VERSION = '2026-09-08 v1';
+const APP_VERSION = '2026-09-08 v2 (위키낱말사전 검증)';
 const DAY = 86400000;
 const INTERVALS = [0, 1, 3, 7, 14, 30, 60, 120];
 let S = null;
@@ -411,10 +420,66 @@ function speak(text){
   } catch (e) {}
 }
 
+// ---------- 위키낱말사전(en.wiktionary) 조회 ----------
+const WIKT = 'https://en.wiktionary.org/api/rest_v1/page/definition/';
+const dictCache = new Map();
+let dictTimer = null, dictLast = null;   // dictLast: 마지막 조회 {key, result}
+const stripHtml = h => String(h||'').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+async function lookupWord(word){
+  const key = norm(word);
+  if (dictCache.has(key)) return dictCache.get(key);
+  const one = async term => {
+    const res = await fetch(WIKT + encodeURIComponent(term.replace(/\s+/g, '_')));
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  };
+  let data = null;
+  try {
+    const t = word.trim();
+    data = await one(t);
+    if (!data && t !== t.toLowerCase()) data = await one(t.toLowerCase());
+  } catch (e) { return { error: String(e && e.message || e) }; }
+  const pick = lang => (data && Array.isArray(data[lang])) ? data[lang].map(g => ({ pos: g.partOfSpeech || '', defs: (g.definitions||[]).map(d => stripHtml(d.definition)).filter(Boolean).slice(0, 3) })).filter(g => g.defs.length) : [];
+  const ms = pick('ms'), id = pick('id');
+  const r = { found: ms.length > 0, idOnly: !ms.length && id.length > 0, groups: ms.length ? ms : id, others: data ? Object.keys(data).filter(k => k !== 'ms' && k !== 'id') : [] };
+  dictCache.set(key, r); return r;
+}
+function glossOf(r){ return r && r.groups && r.groups.length ? r.groups[0].defs[0].slice(0, 80) : ''; }
+function dictHtml(word, r, buttons){
+  const link = `<a class="link" href="https://en.wiktionary.org/wiki/${encodeURIComponent(word.trim().replace(/\s+/g, '_'))}#Malay" target="_blank" rel="noopener">사전 페이지 열기</a>`;
+  if (!r) return '';
+  if (r.wait) return `<div class="dict wait">위키낱말사전에서 확인하는 중…</div>`;
+  if (r.error) return `<div class="dict wait">사전에 연결하지 못했어요 (${esc(r.error)}). 확인 없이 저장할 수 있어요.${buttons || ''}</div>`;
+  if (r.found || r.idOnly) {
+    return `<div class="dict"><h3>위키낱말사전${r.idOnly ? ' — 말레이어 항목은 없고 인도네시아어 항목이 있어요 (철자·뜻은 대개 같아요)' : ''}</h3>
+      ${r.groups.slice(0, 2).map(g => g.defs.map(d => `<div class="def"><span class="pos">${esc(g.pos)}</span>${esc(d)}</div>`).join('')).join('')}
+      ${link}${buttons || ''}</div>`;
+  }
+  return `<div class="dict warn"><h3>위키낱말사전에 말레이어 항목이 없어요</h3>
+    <div class="def">철자를 확인해 주세요. ${r.others.length ? `다른 언어(${esc(r.others.slice(0,3).join(', '))}) 항목만 있어요. ` : ''}접사가 붙은 형태(memakan, makanan…), 구어체, 신조어는 사전에 없을 수 있어요.</div>
+    ${link}${buttons || ''}</div>`;
+}
+function scheduleDictLookup(){
+  clearTimeout(dictTimer);
+  const box = $('#dictbox'); const wi = $('#word'); if (!box || !wi) return;
+  const word = wi.value.trim();
+  if (word.length < 3) { box.innerHTML = ''; dictLast = null; return; }
+  dictTimer = setTimeout(async () => {
+    box.innerHTML = dictHtml(word, { wait:true });
+    const r = await lookupWord(word);
+    const now = $('#word'); if (!now || now.value.trim() !== word) return;   // 그 사이 바뀜
+    dictLast = { key: norm(word), result: r };
+    box.innerHTML = dictHtml(word, r);
+  }, 700);
+}
+
 // ---------- words ----------
 function findByWord(word){ const k = norm(word); return S.words.find(w => norm(w.word) === k); }
 function addWord({word, mean, ex}){
   const w = { id: uid(), word: word.trim(), mean: mean.trim(), ex: (ex||'').trim(), added: Date.now(), stage: 0, due: Date.now(), reps: 0, lapses: 0, last: 0 };
+  if (arguments[0].gloss) w.gloss = arguments[0].gloss;
+  if (arguments[0].dict) w.dict = arguments[0].dict;
   S.words.push(w); return w;
 }
 function dueCards(){ const now = Date.now(); return S.words.filter(w => w.due <= now).sort((a,b) => a.due - b.due); }
@@ -551,6 +616,7 @@ function renderReview(v){
     body = `<section class="card center">${sheet(w.word)}
       <div class="gap"></div>${audio}
       ${session.revealed ? `<div class="meaning">${esc(w.mean)}</div>
+        ${w.gloss ? `<div class="gloss">EN: ${esc(w.gloss)}</div>` : ''}
         ${w.ex ? `<div class="example"><span class="word-inline">${esc(w.ex)}</span></div>` : ''}
         <div class="gap-l"></div>
         <div class="row">
@@ -658,6 +724,8 @@ selamat pagi, 좋은 아침이에요"></textarea>
     : `
       <label for="word">말레이어 단어</label>
       <input type="text" id="word" class="input-word" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="terima kasih">
+      <div id="dictbox"></div>
+      <div class="field-note">입력을 멈추면 위키낱말사전에서 단어를 찾아 영어 뜻을 보여줘요. 저장할 때도 한 번 더 확인합니다.</div>
       <label for="mean">뜻</label>
       <input type="text" id="mean" autocomplete="off" placeholder="감사합니다">
       <label for="ex">예문 (선택)</label>
@@ -667,7 +735,8 @@ selamat pagi, 좋은 아침이에요"></textarea>
     </section>`;
   const wi = $('#word');
   if (wi) {
-    wi.focus();
+    wi.focus(); dictLast = null;
+    wi.addEventListener('input', scheduleDictLookup);
     ['word','mean','ex'].forEach(id => $('#'+id).addEventListener('keydown', e => {
       if (e.key !== 'Enter') return; e.preventDefault();
       const order = ['word','mean','ex']; const i = order.indexOf(id);
@@ -675,16 +744,33 @@ selamat pagi, 좋은 아침이에요"></textarea>
     }));
   }
 }
-function saveOne(){
+let saving = false;
+async function saveOne(force){
+  if (saving) return;
   const word = $('#word').value.trim(), mean = $('#mean').value.trim(), ex = $('#ex').value.trim();
   if (!word) { toast('단어를 입력해 주세요'); $('#word').focus(); return; }
   if (!mean) { toast('뜻을 입력해 주세요'); $('#mean').focus(); return; }
   const dup = findByWord(word);
   if (dup) { toast(`${dup.word} 는 이미 있어요. 단어장에서 수정할 수 있어요.`); return; }
-  addWord({ word, mean, ex }); save();
-  toast(`저장됨: ${word}`);
+  const box = $('#dictbox');
+  let r = (dictLast && dictLast.key === norm(word)) ? dictLast.result : null;
+  if (!force && !r) {
+    saving = true; clearTimeout(dictTimer); if (box) box.innerHTML = dictHtml(word, { wait:true });
+    r = await lookupWord(word); saving = false;
+    const now = $('#word'); if (!now) return;
+    if (now.value.trim() !== word) { if (box) box.innerHTML = ''; return; }
+    dictLast = { key: norm(word), result: r };
+  }
+  if (!force && r && !r.error && !r.found && !r.idOnly) {
+    if (box) box.innerHTML = dictHtml(word, r, `<div class="row"><button class="btn" data-act="fixWord">고치기</button><button class="btn primary" data-act="saveAnyway">그대로 저장</button></div>`);
+    return;
+  }
+  const dict = r ? (r.error ? undefined : (r.found ? 'ok' : (r.idOnly ? 'id' : 'none'))) : undefined;
+  addWord({ word, mean, ex, gloss: glossOf(r), dict }); save();
+  toast(`저장됨: ${word}${r && r.error ? ' (사전 확인 없이)' : ''}`);
   ['word','mean','ex'].forEach(id => { $('#'+id).value = ''; });
-  $('#word').focus(); setStatus();
+  if (box) box.innerHTML = r && !r.error ? dictHtml(word, r) : '';
+  dictLast = null; $('#word').focus(); setStatus();
 }
 function parseLines(raw){
   let added = 0, skipped = 0, bad = 0;
@@ -714,7 +800,7 @@ function listHtml(){
       return `<div class="witem">
         <button class="whead" data-open="${w.id}" aria-expanded="${open}">
           <span class="wword">${esc(w.word)}<div>${esc(w.mean)}</div></span>
-          <span class="wdue">${stageText(w)}</span>
+          <span class="wdue">${w.dict === 'none' ? '<span class="wflag">사전 확인</span><br>' : ''}${stageText(w)}</span>
         </button>
         ${open ? `<div class="wbody">${edit ? `
             <label>단어</label><input type="text" class="input-word" id="e-word" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(w.word)}">
@@ -722,6 +808,8 @@ function listHtml(){
             <label>예문</label><input type="text" class="input-word" style="font-size:18px" id="e-ex" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(w.ex||'')}">
             <div class="row"><button class="btn" data-act="cancelEdit">취소</button><button class="btn primary" data-save="${w.id}">저장</button></div>`
           : `
+            ${w.gloss ? `<div class="gloss" style="margin:0 0 6px">EN: ${esc(w.gloss)}</div>` : ''}
+            ${w.dict === 'none' ? `<div class="dict warn" style="margin:0 0 8px"><h3>위키낱말사전에 말레이어 항목이 없어요</h3><div class="def">철자를 확인해 주세요. 접사형·구어체·신조어는 사전에 없을 수 있어요.</div><a class="link" href="https://en.wiktionary.org/wiki/${encodeURIComponent(w.word.replace(/\s+/g,'_'))}#Malay" target="_blank" rel="noopener">사전 페이지 열기</a></div>` : ''}
             ${w.ex ? `<div class="example" style="margin:0 0 8px"><span class="word-inline">${esc(w.ex)}</span></div>` : ''}
             <div>단계 ${stagebar(w.stage)} <span style="margin-left:8px">맞음 ${(w.reps||0)-(w.lapses||0)}, 틀림 ${w.lapses||0}</span></div>
             <div class="row">
@@ -777,6 +865,13 @@ function renderSettings(v){
     </section>
     <div class="gap"></div>
     <section class="card">
+    <h2>사전 점검</h2>
+    <p class="small muted" style="margin:0 0 6px">아직 확인하지 않은 단어 ${S.words.filter(w => !w.dict).length}개를 위키낱말사전에서 찾아 없는 단어에 표시하고 영어 뜻을 채워요.</p>
+    <button class="btn" data-act="dictAll" id="dictAll" ${S.words.filter(w => !w.dict).length ? '' : 'disabled'}>미확인 단어 점검</button>
+    <p class="small muted" id="dictProgress" style="margin:6px 0 0"></p>
+    </section>
+    <div class="gap"></div>
+    <section class="card">
     <h2>데이터</h2>
     <p class="small muted" style="margin:0">총 ${S.words.length}단어, 복습 ${Object.values(S.log).reduce((a,l)=>a+l.n,0)}회 · 앱 버전 ${APP_VERSION}</p>
     <button class="btn ${confirmDelete === '*' ? 'danger' : ''}" data-act="wipe">${confirmDelete === '*' ? '정말 모두 삭제' : '모든 단어 삭제'}</button>
@@ -815,6 +910,22 @@ function importIo(){
   toast(`${r.added}개 저장${r.skipped ? `, ${r.skipped}개 중복` : ''}${r.bad ? `, ${r.bad}줄 오류` : ''}`); setStatus();
 }
 
+async function dictCheckAll(){
+  const btn = $('#dictAll'); const prog = $('#dictProgress');
+  const todo = S.words.filter(w => !w.dict); if (!todo.length) return;
+  if (btn) btn.disabled = true;
+  let done = 0, missing = 0, errors = 0;
+  for (const w of todo) {
+    const r = await lookupWord(w.word);
+    if (r.error) errors++; else { w.dict = r.found ? 'ok' : (r.idOnly ? 'id' : 'none'); const g = glossOf(r); if (g) w.gloss = g; if (w.dict === 'none') missing++; }
+    done++; if (prog) prog.textContent = `${done}/${todo.length} 확인 중…`;
+    await new Promise(res => setTimeout(res, 150));
+  }
+  save();
+  if (prog) prog.textContent = `완료 — 사전에 없는 단어 ${missing}개${errors ? `, 연결 실패 ${errors}개` : ''}. 단어장 탭에서 '사전 확인' 표시를 보세요.`;
+  toast(`${done}개 점검 완료`);
+}
+
 // ---------- events ----------
 document.querySelector('.tabs').addEventListener('click', e => {
   const b = e.target.closest('button[data-tab]'); if (!b) return;
@@ -838,6 +949,7 @@ $('#view').addEventListener('click', e => {
     const word = $('#e-word').value.trim(), mean = $('#e-mean').value.trim(), ex = $('#e-ex').value.trim();
     if (!word || !mean) { toast('단어와 뜻을 확인해 주세요'); return; }
     const dup = findByWord(word); if (dup && dup.id !== w.id) { toast('같은 단어가 이미 있어요'); return; }
+    if (norm(word) !== norm(w.word)) { delete w.dict; delete w.gloss; }
     Object.assign(w, { word, mean, ex }); save(); listState.edit = null; toast('수정했어요'); refreshList(); return;
   }
   switch (d.act) {
@@ -852,7 +964,10 @@ $('#view').addEventListener('click', e => {
     case 'start': startSession(false); render(); break;
     case 'extra': if (!startSession(true)) toast('복습할 단어가 없어요'); render(); break;
     case 'toggleBulk': addState.bulk = !addState.bulk; render(); break;
-    case 'saveOne': saveOne(); break;
+    case 'saveOne': saveOne(false); break;
+    case 'saveAnyway': saveOne(true); break;
+    case 'fixWord': { const wi = $('#word'); if (wi) { wi.focus(); wi.select(); } break; }
+    case 'dictAll': dictCheckAll(); break;
     case 'saveBulk': saveBulk(); break;
     case 'cancelEdit': listState.edit = null; refreshList(); break;
     case 'syncOn': connectSync($('#syncUrl').value); break;
