@@ -130,6 +130,19 @@
   .dict .row .btn{height:42px;font-size:14px}
   .gloss{font-size:14px;color:var(--ink-2);margin-top:6px}
   .wflag{display:inline-block;font-size:11px;color:var(--seal);border:1px solid var(--seal);border-radius:4px;padding:0 5px;line-height:16px;margin-bottom:3px}
+  .wrow{display:flex;align-items:center}
+  .wrow .whead{flex:1;min-width:0;padding-left:6px}
+  .wcheck{display:flex;align-items:center;justify-content:center;width:44px;align-self:stretch;margin:0;padding-left:8px;cursor:pointer}
+  .wcheck input{width:20px;height:20px;margin:0;accent-color:var(--teal)}
+  .focusbar{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+  .focusbar .fhead{display:flex;justify-content:space-between;align-items:baseline;font-size:14px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{height:34px;padding:0 12px;border-radius:17px;border:1px solid var(--line);background:var(--white);font-size:13px;color:var(--ink-2)}
+  .chip.on{border-color:var(--teal);color:var(--teal)}
+  .chip:disabled{opacity:.45}
+  .focusbar .btn{height:44px;font-size:15px}
+  select{width:100%;height:46px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:var(--white);font-size:15px}
+  input[type=range]{width:100%;accent-color:var(--teal)}
   .empty{padding:30px 10px;text-align:center;color:var(--ink-2)}
 
   .tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;background:var(--white);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
@@ -166,7 +179,7 @@
 (function(){
 'use strict';
 const KEY = 'msvocab_v1';
-const APP_VERSION = '2026-09-08 v2 (위키낱말사전 검증)';
+const APP_VERSION = '2026-09-29 v3 (집중 복습·음성 선택)';
 const DAY = 86400000;
 const INTERVALS = [0, 1, 3, 7, 14, 30, 60, 120];
 let S = null;
@@ -177,7 +190,7 @@ const inIframe = (() => { try { return window.self !== window.top; } catch (e) {
 let saveTimer = null, saveRetries = 0;
 let tab = 'review';
 let session = { active:false, finished:false, extra:false, queue:[], cur:null, type:null, revealed:false, pending:null, done:0, ok:0 };
-let listState = { q:'', open:null, edit:null };
+let listState = { q:'', open:null, edit:null, focusOnly:false };
 let addState = { bulk:false };
 let confirmDelete = null;
 
@@ -406,7 +419,20 @@ let voices = [];
 function loadVoices(){ try { voices = speechSynthesis.getVoices() || []; } catch (e) { voices = []; } }
 const ttsBase = ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window);
 if (ttsBase) { loadVoices(); try { speechSynthesis.onvoiceschanged = loadVoices; } catch (e) {} }
-function pickVoice(){ return voices.find(v => /^ms/i.test(v.lang)) || voices.find(v => /^id/i.test(v.lang)) || null; }
+const DEFAULT_RATE = 0.85;
+const TEST_TEXT = 'Selamat pagi. Terima kasih banyak, saya suka makan nasi lemak.';
+function langVoices(){ return voices.filter(v => /^(ms|id|in)[-_]?/i.test(v.lang)); }
+function autoVoice(){ return voices.find(v => /^ms/i.test(v.lang)) || voices.find(v => /^(id|in)/i.test(v.lang)) || null; }
+function pickVoice(){ const c = S && S.settings && S.settings.voice ? voices.find(x => x.voiceURI === S.settings.voice) : null; return c || autoVoice(); }
+function voiceOptionsHtml(){
+  const list = langVoices();
+  const auto = autoVoice();
+  const cur = S.settings.voice || '';
+  if (!list.length) return `<option value="">자동 (기기 기본 음성)</option>`;
+  return `<option value="" ${cur ? '' : 'selected'}>자동 — ${esc(auto ? auto.name + ' (' + auto.lang + ')' : '기기 기본')}</option>` +
+    list.map(v => `<option value="${esc(v.voiceURI)}" ${cur === v.voiceURI ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})${v.localService === false ? ' · 온라인' : ''}</option>`).join('');
+}
+
 function ttsOK(){ return ttsBase && (!voices.length || !!pickVoice()); }   // 목소리 목록이 아직 없으면 일단 시도
 function speak(text){
   if (!ttsBase) return;
@@ -415,7 +441,7 @@ function speak(text){
     const u = new SpeechSynthesisUtterance(text);
     const v = pickVoice();
     if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'ms-MY';
-    u.rate = 0.85;
+    u.rate = (S && S.settings && S.settings.rate) || DEFAULT_RATE;
     speechSynthesis.speak(u);
   } catch (e) {}
 }
@@ -500,10 +526,12 @@ const sheet = (text, small) => `<div class="sheet"><div class="word ${small ? 's
 
 // ---------- session ----------
 function startSession(extra){
-  let cards = dueCards();
-  if (extra) cards = shuffle(S.words.slice()).slice(0, 10);
+  let cards;
+  if (extra === 'focus') cards = shuffle(focusWords());
+  else { cards = dueCards(); if (extra) cards = shuffle(S.words.slice()).slice(0, 10); }
   if (!cards.length) { session.active = false; return false; }
-  session = { active:true, finished:false, extra, queue: cards.map(w => w.id), cur:null, type:null, revealed:false, pending:null, done:0, ok:0 };
+  const now0 = Date.now(), dueSet = new Set(cards.filter(w => w.due <= now0).map(w => w.id));
+  session = { active:true, finished:false, extra: !!extra, focus: extra === 'focus', dueSet, queue: cards.map(w => w.id), cur:null, type:null, revealed:false, pending:null, done:0, ok:0 };
   nextCard();
   return true;
 }
@@ -533,11 +561,37 @@ function nextCard(){
 }
 function finishCard(result){
   const w = session.cur;
-  applyGrade(w, result, session.extra);
+  applyGrade(w, result, session.extra && !(session.dueSet && session.dueSet.has(w.id)));
   session.done++; if (result !== 'fail') session.ok++;
   if (result === 'fail') session.queue.push(w.id);
   nextCard();
   render();
+}
+
+
+// ---------- 집중 복습(체크한 단어) ----------
+function focusWords(){ return S.words.filter(w => w.focus); }
+function focusBarHtml(){
+  const n = focusWords().length;
+  return `<div class="focusbar" id="focusbar">
+    <div class="fhead"><span>집중 복습 <b id="focusCount">${n}</b>개 체크됨</span><button class="link" data-act="focusOnly" style="padding:0">${listState.focusOnly ? '전체 보기' : '체크한 것만 보기'}</button></div>
+    <div class="chips">
+      <button class="chip" data-act="focusRecent">최근 등록 20개 체크</button>
+      <button class="chip" data-act="focusMissed">많이 틀린 20개 체크</button>
+      <button class="chip" data-act="focusClear" id="focusClear" ${n ? '' : 'disabled'}>체크 모두 해제</button>
+    </div>
+    <button class="btn primary" data-act="startFocus" id="startFocus" ${n ? '' : 'disabled'}>체크한 ${n}개 복습</button>
+  </div>`;
+}
+function updateFocusBar(){
+  const n = focusWords().length;
+  const c = $('#focusCount'); if (c) c.textContent = n;
+  const b = $('#startFocus'); if (b) { b.textContent = `체크한 ${n}개 복습`; b.disabled = !n; }
+  const x = $('#focusClear'); if (x) x.disabled = !n;
+}
+function focusAdd(list, label){
+  let added = 0; list.forEach(w => { if (!w.focus) { w.focus = true; added++; } });
+  save(); refreshList(); toast(added ? `${label} ${added}개를 체크했어요` : '이미 모두 체크돼 있어요');
 }
 
 // ---------- render ----------
@@ -576,6 +630,7 @@ function renderReview(v){
       <p class="meaning">${session.done}개 복습, ${session.ok}개 맞았어요</p>
       <p class="muted small">${dueCards().length ? `대기 카드가 ${dueCards().length}개 더 있어요.` : `다음 복습은 ${nextDueText()}.`}</p>
       ${dueCards().length ? `<button class="btn primary" data-act="start">이어서 복습</button>` : ''}
+      ${focusWords().length ? `<button class="btn" data-act="startFocus">체크한 ${focusWords().length}개 집중 복습</button>` : ''}
       <button class="btn" data-act="extra">랜덤으로 10개 더 복습</button>
       <button class="btn quiet" data-go="add">새 단어 추가</button></section>`;
     session.finished = false;
@@ -585,6 +640,7 @@ function renderReview(v){
     if (startSession(false)) { renderReview(v); return; }
     v.innerHTML = `<section class="card empty">${sheet('Rehat dulu', true)}
       <p style="margin-top:18px">지금 복습할 카드가 없어요.<br>다음 복습은 <strong>${nextDueText()}</strong>예요.</p>
+      ${focusWords().length ? `<button class="btn primary" data-act="startFocus">체크한 ${focusWords().length}개 집중 복습</button>` : `<p class="hint">단어장 탭에서 체크한 단어만 골라 집중 복습할 수 있어요.</p>`}
       <button class="btn" data-act="extra">랜덤으로 10개 미리 복습</button>
       <p class="hint" style="margin-top:8px">미리 복습에서는 틀린 카드만 다시 대기열에 들어가요.</p>
       <button class="btn quiet" data-go="add">새 단어 추가</button></section>`;
@@ -595,7 +651,7 @@ function renderReview(v){
   const remain = session.queue.length + 1;
   const pct = Math.round(session.done / (session.done + remain) * 100);
   const head = `<div class="progress" aria-hidden="true"><i style="width:${pct}%"></i></div>
-    <p class="small muted center" style="margin:-6px 0 8px">${session.extra ? '미리 복습' : '복습'} — 남은 카드 ${remain}개</p>`;
+    <p class="small muted center" style="margin:-6px 0 8px">${session.focus ? '집중 복습' : session.extra ? '미리 복습' : '복습'} — 남은 카드 ${remain}개${!session.focus && focusWords().length ? ` · <button class="link" data-act="startFocus" style="padding:0;font-size:13px">체크한 ${focusWords().length}개로 전환</button>` : ''}</p>`;
   const audio = ttsOK() ? `<button class="iconbtn" data-act="speak" aria-label="발음 듣기">듣기</button>` : '';
   const answerBlock = (showWord) => `
     ${showWord ? sheet(w.word) : ''}
@@ -792,16 +848,18 @@ function saveBulk(){
 
 function listHtml(){
   const q = listState.q.trim().toLowerCase();
-  const words = S.words.slice().sort((a,b) => b.added - a.added).filter(w => !q || w.word.toLowerCase().includes(q) || w.mean.toLowerCase().includes(q) || (w.ex||'').toLowerCase().includes(q));
+  const words = S.words.slice().sort((a,b) => b.added - a.added).filter(w => !listState.focusOnly || w.focus).filter(w => !q || w.word.toLowerCase().includes(q) || w.mean.toLowerCase().includes(q) || (w.ex||'').toLowerCase().includes(q));
   const stageText = w => w.stage >= INTERVALS.length-1 ? '장기 기억' : (w.due <= Date.now() ? '복습 대기' : `다음 ${relTime(w.due)}`);
-  if (!words.length) return `<section class="card empty">${S.words.length ? '검색 결과가 없어요.' : '아직 단어가 없어요. 추가 탭에서 첫 단어를 넣어 보세요.'}</section>`;
-  return `<div class="wlist">${words.map(w => {
+  const topbar = S.words.length ? focusBarHtml() : '';
+  if (!words.length) return topbar + `<section class="card empty">${listState.focusOnly ? '체크한 단어가 없어요.' : S.words.length ? '검색 결과가 없어요.' : '아직 단어가 없어요. 추가 탭에서 첫 단어를 넣어 보세요.'}</section>`;
+  return topbar + `<div class="wlist">${words.map(w => {
       const open = listState.open === w.id, edit = listState.edit === w.id;
       return `<div class="witem">
+        <div class="wrow"><label class="wcheck" title="집중 복습에 포함"><input type="checkbox" data-focus="${w.id}" ${w.focus ? 'checked' : ''} aria-label="${esc(w.word)} 집중 복습에 포함"></label>
         <button class="whead" data-open="${w.id}" aria-expanded="${open}">
           <span class="wword">${esc(w.word)}<div>${esc(w.mean)}</div></span>
           <span class="wdue">${w.dict === 'none' ? '<span class="wflag">사전 확인</span><br>' : ''}${stageText(w)}</span>
-        </button>
+        </button></div>
         ${open ? `<div class="wbody">${edit ? `
             <label>단어</label><input type="text" class="input-word" id="e-word" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(w.word)}">
             <label>뜻</label><input type="text" id="e-mean" value="${esc(w.mean)}">
@@ -847,6 +905,16 @@ function renderSettings(v){
     </section>
     <div class="gap"></div>
     <section class="card">
+    <h2>발음 음성</h2>
+    <p class="small muted" style="margin:0 0 6px">발음은 녹음이 아니라 이 기기의 음성 합성으로 읽어요. 말레이어 음성이 없으면 인도네시아어 음성을 써요. 이상하게 들리면 다른 음성으로 바꿔 보세요. 기기마다 목록이 달라요.</p>
+    <label for="voiceSel">음성</label>
+    <select id="voiceSel">${voiceOptionsHtml()}</select>
+    <label for="rateSel">속도 <span id="rateVal">${(S.settings.rate || DEFAULT_RATE).toFixed(2)}</span></label>
+    <input type="range" id="rateSel" min="0.5" max="1.1" step="0.05" value="${S.settings.rate || DEFAULT_RATE}">
+    <button class="btn" data-act="testVoice">들어 보기</button>
+    </section>
+    <div class="gap"></div>
+    <section class="card">
     <h2>복습 방식</h2>
     ${modes.map(([k, t, d]) => `<label class="radio"><input type="radio" name="mode" value="${k}" ${S.settings.mode===k?'checked':''}><div>${t}<span class="small muted">${d}</span></div></label>`).join('')}
     <label class="radio" style="border-top:1px solid var(--line);margin-top:4px"><input type="checkbox" id="listenCards" ${S.settings.listenCards !== false ? 'checked' : ''}><div>'섞어서'에 듣기 카드 포함</div></label>
@@ -878,6 +946,9 @@ function renderSettings(v){
     </section>`;
   document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', () => { S.settings.mode = r.value; save(); toast('복습 방식 변경됨'); }));
   $('#autoAudio').addEventListener('change', e => { S.settings.autoAudio = e.target.checked; save(); });
+  $('#voiceSel').addEventListener('change', e => { if (e.target.value) S.settings.voice = e.target.value; else delete S.settings.voice; save(); speak(TEST_TEXT); });
+  $('#rateSel').addEventListener('input', e => { $('#rateVal').textContent = (+e.target.value).toFixed(2); });
+  $('#rateSel').addEventListener('change', e => { S.settings.rate = +e.target.value; save(); speak(TEST_TEXT); });
   $('#listenCards').addEventListener('change', e => { S.settings.listenCards = e.target.checked; save(); });
   $('#speakCards').addEventListener('change', e => { S.settings.speakCards = e.target.checked; save(); });
 }
@@ -931,6 +1002,12 @@ document.querySelector('.tabs').addEventListener('click', e => {
   const b = e.target.closest('button[data-tab]'); if (!b) return;
   tab = b.dataset.tab; confirmDelete = null; render();
 });
+$('#view').addEventListener('change', e => {
+  const f = e.target.closest('input[data-focus]');
+  if (f) { const w = S.words.find(x => x.id === f.dataset.focus); if (w) { if (f.checked) w.focus = true; else delete w.focus; save(); updateFocusBar(); } return; }
+  const nw = e.target.closest('input[data-nowrite]');
+  if (nw) { const w = S.words.find(x => x.id === nw.dataset.nowrite); if (w) { if (nw.checked) w.noWrite = true; else delete w.noWrite; save(); toast(nw.checked ? '이 단어는 손글씨 대신 병음 입력으로 복습해요' : '손글씨 카드에 다시 포함했어요'); } }
+});
 $('#view').addEventListener('click', e => {
   const t = e.target.closest('[data-act],[data-grade],[data-go],[data-open],[data-edit],[data-del],[data-save],[data-speak]');
   if (!t) return;
@@ -962,6 +1039,11 @@ $('#view').addEventListener('click', e => {
     case 'hint': session.hint = true; { const el = $('#whint'); if (el && session.cur) el.textContent = session.cur.mean; } break;
     case 'listen': startListening(); break;
     case 'start': startSession(false); render(); break;
+    case 'startFocus': if (!focusWords().length) { toast('체크한 단어가 없어요'); break; } tab = 'review'; startSession('focus'); render(); break;
+    case 'focusRecent': focusAdd(S.words.slice().sort((a,b) => b.added - a.added).slice(0, 20), '최근 등록'); break;
+    case 'focusMissed': { const m = S.words.filter(w => (w.lapses||0) > 0).sort((a,b) => (b.lapses||0) - (a.lapses||0) || (b.last||0) - (a.last||0)).slice(0, 20); if (!m.length) { toast('아직 틀린 단어가 없어요'); break; } focusAdd(m, '많이 틀린 단어'); break; }
+    case 'focusClear': S.words.forEach(w => { delete w.focus; }); save(); refreshList(); toast('체크를 모두 해제했어요'); break;
+    case 'focusOnly': listState.focusOnly = !listState.focusOnly; listState.open = null; refreshList(); break;
     case 'extra': if (!startSession(true)) toast('복습할 단어가 없어요'); render(); break;
     case 'toggleBulk': addState.bulk = !addState.bulk; render(); break;
     case 'saveOne': saveOne(false); break;
@@ -973,6 +1055,7 @@ $('#view').addEventListener('click', e => {
     case 'syncOn': connectSync($('#syncUrl').value); break;
     case 'syncOff': disconnectSync(); break;
     case 'copySync': (async () => { try { await navigator.clipboard.writeText(sync.url); toast('주소를 복사했어요'); } catch (e) { const i = $('#syncUrl'); if (i) { i.focus(); i.select(); } toast('길게 눌러 복사하세요'); } })(); break;
+    case 'testVoice': speak(TEST_TEXT); break;
     case 'exportTsv': exportTsv(); break;
     case 'exportJson': exportJson(); break;
     case 'copy': copyIo(); break;
